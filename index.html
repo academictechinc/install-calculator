@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Install Calculator — Fractions &amp; Mount Height</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12141a">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+  :root{
+    --bg: #12141a;
+    --panel: #1a1d24;
+    --panel-2: #20242c;
+    --border: #2b303a;
+    --text: #eceef2;
+    --muted: #8992a3;
+    --accent: #4fd8c4;
+    --accent-soft: rgba(79,216,196,0.14);
+    --dim: #f2a93b;
+    --dim-soft: rgba(242,169,59,0.14);
+  }
+
+  *{ box-sizing: border-box; }
+
+  html,body{
+    margin:0; padding:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding: 28px 16px 48px;
+  }
+
+  .wrap{ width:100%; max-width: 860px; }
+
+  header{ margin-bottom: 22px; }
+
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 8px;
+  }
+
+  h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: clamp(22px, 4vw, 30px);
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+
+  .sub{ color: var(--muted); font-size: 14px; margin: 0; max-width: 52ch; }
+
+  .controls-row{
+    display:flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom: 10px;
+  }
+  .controls-row:last-of-type{ margin-bottom: 20px; }
+
+  .tabs{
+    display:flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+  }
+
+  .tab{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+    white-space: nowrap;
+  }
+  .tab.active{ background: var(--accent-soft); color: var(--accent); }
+
+  .precision{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px 6px 6px 14px;
+  }
+  .precision label{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .precision select{
+    background: var(--panel-2);
+    color: var(--dim);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  main{ display:grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
+  @media (max-width: 700px){
+    main{ grid-template-columns: 1fr; }
+    .fields-panel{ order: 1; }
+    .diagram-panel{ order: 2; min-height: auto; }
+  }
+  @media (max-width: 480px){
+    body{ padding: 20px 12px 40px; }
+    .controls-row{ flex-direction: column; align-items: stretch; }
+    .tabs, .precision{ width: 100%; }
+    .tabs .tab{ flex: 1; justify-content: center; padding: 12px 6px; min-height: 44px; }
+    .panel{ padding: 14px; }
+  }
+
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+  }
+
+  .diagram-panel{
+    display:flex; align-items:center; justify-content:center;
+    min-height: 300px;
+  }
+  svg{ width: 100%; height: auto; overflow: visible; }
+
+  .axis-line{ stroke: var(--muted); stroke-width: 1.5; opacity: 0.5; }
+  .tick-mount{ stroke: var(--dim); stroke-width: 2; }
+  .tick-display{ stroke: var(--accent); stroke-width: 2; }
+  .label-mount{ fill: var(--dim); font-family:'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; }
+  .label-display{ fill: var(--accent); font-family:'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; }
+  .label-muted{ fill: var(--muted); font-family:'IBM Plex Mono', monospace; font-size: 11px; }
+  .floor-line{ stroke: var(--text); stroke-width: 2; opacity: 0.6; }
+  .display-rect{ fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+  .offset-bracket{ stroke: var(--dim); stroke-width: 1.5; stroke-dasharray: 4 4; }
+  .bar-line{ stroke: var(--accent); stroke-width: 3; }
+  .bar-tick{ stroke: var(--accent); stroke-width: 3; }
+  .center-tick{ stroke: var(--dim); stroke-width: 2.5; }
+  .bar-label{ fill: var(--text); font-family:'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; }
+  .center-label{ fill: var(--dim); font-family:'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; }
+  .edge-dim-line{ stroke: var(--dim); stroke-width: 2; }
+  .edge-dim-tick{ stroke: var(--dim); stroke-width: 2; }
+  .edge-dim-label{ fill: var(--dim); font-family:'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; }
+
+  .amp-block{ fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+  .amp-label{ fill: var(--accent); font-family:'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; }
+  .bus-line{ stroke: var(--muted); stroke-width: 2; opacity: 0.6; }
+  .tap-drop{ stroke: var(--dim); stroke-width: 1.5; opacity: 0.7; }
+  .tap-outer{ fill: none; stroke: var(--dim); stroke-width: 1.5; }
+  .tap-inner{ fill: var(--dim); }
+  .calc-label{ fill: var(--text); font-family:'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; }
+  .calc-sub{ fill: var(--muted); font-family:'IBM Plex Mono', monospace; font-size: 11px; }
+
+  .fields{ display:flex; flex-direction: column; gap: 14px; }
+  .field{ display:flex; flex-direction: column; gap: 6px; }
+  .field label{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .field .hint{ font-size: 12px; color: var(--muted); font-family: 'Inter'; text-transform: none; letter-spacing: 0; }
+
+  .input-row{
+    display:flex; align-items:center;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+  }
+  .input-row:focus-within{ border-color: var(--accent); }
+  .input-row.answer{ border-color: var(--accent); background: var(--accent-soft); }
+
+  .input-row input, .input-row select{
+    flex:1; min-width: 0; width: 0;
+    background: transparent; border: none; outline: none;
+    padding: 12px 8px 12px 12px;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 16px; font-weight: 600;
+  }
+  .input-row .suffix{
+    padding: 0 12px; color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+  }
+
+  .row-group{ display:flex; gap: 8px; }
+  .row-group .input-row{ flex: 1; }
+
+  .fraction-sub{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--dim);
+    min-height: 18px;
+  }
+
+  .mode-toggle-inline{
+    display:flex; background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 3px; margin-bottom: 4px; align-self: flex-start;
+  }
+  .mode-btn{
+    padding: 7px 12px; border-radius: 7px; border: none; background: transparent;
+    color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600;
+    cursor: pointer;
+  }
+  .mode-btn.active{ background: var(--dim-soft); color: var(--dim); }
+
+  .ftfrac-row{ display: none; }
+
+  .output-card{
+    margin-top: 4px; padding-top: 16px; border-top: 1px solid var(--border);
+    display:flex; flex-direction: column; gap: 14px;
+  }
+  .output-item .output-label{
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+  }
+  .output-item .output-value{
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px;
+  }
+  .output-item.highlight .output-value{ color: var(--accent); }
+  .output-item .output-sub{ font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .ref-panel{ margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--border); display: none; }
+  .ref-panel.visible{ display: block; }
+  .ref-panel .ref-title{
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+  }
+  .ref-row{ display:flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
+  .ref-row span:first-child{ color: var(--muted); }
+  .ref-row span:last-child{ font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+
+  .hidden{ display: none !important; }
+
+  footer{ margin-top: 18px; color: var(--muted); font-size: 12px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Field Measurements</p>
+    <h1>Install Calculator</h1>
+    <p class="sub">Fractions, mount heights, and speaker line math — built for the moments you're standing at the wall, not a spreadsheet.</p>
+  </header>
+
+  <div class="controls-row">
+    <div class="tabs" id="modeTabs">
+      <button class="tab active" data-mode="center">Center Finder</button>
+      <button class="tab" data-mode="mount">Mount Height</button>
+      <button class="tab" data-mode="70v">70V Tap</button>
+      <button class="tab" data-mode="8ohm">8Ω Load</button>
+    </div>
+  </div>
+
+  <div class="controls-row" id="precisionRow">
+    <div class="precision">
+      <label for="precisionSelect">Nearest</label>
+      <select id="precisionSelect">
+        <option value="8">1/8"</option>
+        <option value="16" selected>1/16"</option>
+        <option value="32">1/32"</option>
+        <option value="64">1/64"</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ============ CENTER FINDER ============ -->
+  <section id="centerSection">
+    <main>
+      <div class="panel diagram-panel">
+        <svg id="barSvg" viewBox="0 0 480 210" xmlns="http://www.w3.org/2000/svg">
+          <text class="bar-label" id="barFullLabel" x="240" y="40" text-anchor="middle">Full length</text>
+          <line class="bar-line" id="barLine" x1="60" y1="100" x2="420" y2="100"></line>
+          <line class="bar-tick" x1="60" y1="88" x2="60" y2="112"></line>
+          <line class="bar-tick" x1="420" y1="88" x2="420" y2="112"></line>
+          <line class="center-tick" id="barCenterTick" x1="240" y1="80" x2="240" y2="120"></line>
+          <text class="center-label" id="barCenterLabel" x="240" y="150" text-anchor="middle">Center</text>
+
+          <line class="edge-dim-line" x1="240" y1="168" x2="420" y2="168"></line>
+          <line class="edge-dim-tick" x1="240" y1="162" x2="240" y2="174"></line>
+          <line class="edge-dim-tick" x1="420" y1="162" x2="420" y2="174"></line>
+          <text class="edge-dim-label" id="edgeDimLabel" x="330" y="190" text-anchor="middle">Center to edge</text>
+        </svg>
+      </div>
+
+      <div class="panel fields-panel">
+        <div class="fields">
+          <div class="mode-toggle-inline" id="inputModeToggle">
+            <button class="mode-btn active" data-im="ftfrac">Feet + Fraction</button>
+            <button class="mode-btn" data-im="decimal">Decimal</button>
+          </div>
+
+          <div class="field">
+            <label>Measurement</label>
+            <div class="row-group ftfrac-row" id="ftfracRow" style="display:flex;">
+              <div class="input-row">
+                <input type="number" inputmode="decimal" step="1" id="feetInput" placeholder="0">
+                <span class="suffix">ft</span>
+              </div>
+              <div class="input-row">
+                <input type="number" inputmode="decimal" step="1" id="inchInput" placeholder="0">
+                <span class="suffix">in</span>
+              </div>
+              <div class="input-row">
+                <select id="fracSelect">
+                  <option value="0">0</option>
+                  <option value="0.0625">1/16</option>
+                  <option value="0.125">1/8</option>
+                  <option value="0.1875">3/16</option>
+                  <option value="0.25">1/4</option>
+                  <option value="0.3125">5/16</option>
+                  <option value="0.375">3/8</option>
+                  <option value="0.4375">7/16</option>
+                  <option value="0.5">1/2</option>
+                  <option value="0.5625">9/16</option>
+                  <option value="0.625">5/8</option>
+                  <option value="0.6875">11/16</option>
+                  <option value="0.75">3/4</option>
+                  <option value="0.8125">13/16</option>
+                  <option value="0.875">7/8</option>
+                  <option value="0.9375">15/16</option>
+                </select>
+              </div>
+            </div>
+            <div class="input-row" id="decimalRow" style="display:none;">
+              <input type="number" inputmode="decimal" step="0.001" id="decimalInput" placeholder="0.00">
+              <span class="suffix">in</span>
+            </div>
+          </div>
+
+          <div class="output-card">
+            <div class="output-item">
+              <div class="output-label">Full length</div>
+              <div class="output-value" id="outFull">—</div>
+              <div class="output-sub" id="outFullSub"></div>
+            </div>
+            <div class="output-item highlight">
+              <div class="output-label">Center (÷2)</div>
+              <div class="output-value" id="outHalf">—</div>
+              <div class="output-sub" id="outHalfSub"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <!-- ============ MOUNT HEIGHT ============ -->
+  <section id="mountSection" class="hidden">
+    <main>
+      <div class="panel diagram-panel">
+        <svg id="mountSvg" viewBox="0 0 380 360" xmlns="http://www.w3.org/2000/svg">
+          <line class="floor-line" x1="30" y1="300" x2="350" y2="300"></line>
+          <text class="label-muted" x="30" y="320">FINISH FLOOR — 0"</text>
+
+          <line class="axis-line" x1="90" y1="300" x2="90" y2="40"></line>
+
+          <rect class="display-rect" id="displayRect" x="150" y="0" width="90" height="0"></rect>
+
+          <line class="tick-mount" id="mountTick" x1="70" y1="0" x2="110" y2="0"></line>
+          <text class="label-mount" id="mountTickLabel" x="60" y="0" text-anchor="end"></text>
+
+          <line class="tick-display" id="displayTick" x1="70" y1="0" x2="230" y2="0"></line>
+          <text class="label-display" id="displayTickLabel" x="240" y="0" text-anchor="start"></text>
+
+          <line class="offset-bracket" id="offsetBracket" x1="90" y1="0" x2="90" y2="0"></line>
+          <text class="label-muted" id="offsetLabel" x="100" y="0" text-anchor="start"></text>
+        </svg>
+      </div>
+
+      <div class="panel fields-panel">
+        <div class="fields">
+          <div class="field">
+            <label>Display Height — Top, AFF</label>
+            <div class="input-row" id="row-displayTop">
+              <input type="number" inputmode="decimal" step="0.01" id="displayTopInput">
+              <span class="suffix">in</span>
+            </div>
+            <div class="fraction-sub" id="sub-displayTop"></div>
+          </div>
+
+          <div class="field">
+            <label>Mount Offset — Top of Mount to Top of Display</label>
+            <div class="input-row" id="row-offset">
+              <input type="number" inputmode="decimal" step="0.01" id="offsetInput">
+              <span class="suffix">in</span>
+            </div>
+            <div class="fraction-sub" id="sub-offset"></div>
+          </div>
+
+          <div class="field">
+            <label>Mount Height — Top, AFF</label>
+            <div class="input-row" id="row-mountTop">
+              <input type="number" inputmode="decimal" step="0.01" id="mountTopInput">
+              <span class="suffix">in</span>
+            </div>
+            <div class="fraction-sub" id="sub-mountTop"></div>
+            <div class="hint">Enter any two of the three fields — the third fills in automatically.</div>
+          </div>
+
+          <div class="field">
+            <label>Display Panel Height <span style="text-transform:none; opacity:0.7;">(optional)</span></label>
+            <div class="input-row">
+              <input type="number" inputmode="decimal" step="0.01" id="panelHeightInput">
+              <span class="suffix">in</span>
+            </div>
+            <div class="hint">Adds center &amp; bottom AFF below, once display height is known.</div>
+          </div>
+
+          <div class="ref-panel" id="refPanel">
+            <div class="ref-title">Display reference heights (AFF)</div>
+            <div class="ref-row"><span>Top</span><span id="refTop">—</span></div>
+            <div class="ref-row"><span>Center</span><span id="refCenter">—</span></div>
+            <div class="ref-row"><span>Bottom</span><span id="refBottom">—</span></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <!-- ============ 70V TAP CALCULATOR ============ -->
+  <section id="v70Section" class="hidden">
+    <main>
+      <div class="panel diagram-panel">
+        <svg id="v70Svg" viewBox="0 0 480 200" xmlns="http://www.w3.org/2000/svg">
+          <text class="calc-label" id="v70UsableLabel" x="240" y="35" text-anchor="middle">Usable power —</text>
+
+          <rect class="amp-block" x="30" y="80" width="60" height="40" rx="4"></rect>
+          <text class="amp-label" x="60" y="104" text-anchor="middle">AMP</text>
+          <line class="bus-line" x1="90" y1="100" x2="430" y2="100"></line>
+
+          <g id="v70TapNodes"></g>
+
+          <text class="calc-sub" x="240" y="155" text-anchor="middle">70V line, tapped speakers</text>
+          <text class="calc-label" id="v70TapLabel" x="240" y="180" text-anchor="middle">Max tap per speaker —</text>
+        </svg>
+      </div>
+
+      <div class="panel fields-panel">
+        <div class="fields">
+          <div class="field">
+            <label>Amplifier Channel Total Wattage</label>
+            <div class="input-row">
+              <input type="number" inputmode="decimal" step="1" id="v70WattsInput" placeholder="e.g. 100">
+              <span class="suffix">W</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Headroom Factor</label>
+            <div class="input-row">
+              <input type="number" inputmode="decimal" step="1" id="v70HeadroomInput" value="80">
+              <span class="suffix">%</span>
+            </div>
+            <div class="hint">Standard practice is 80% to leave amp headroom — change it if your design calls for something else.</div>
+          </div>
+
+          <div class="field">
+            <label>Number of Speakers</label>
+            <div class="input-row">
+              <input type="number" inputmode="numeric" step="1" min="1" id="v70SpeakersInput" placeholder="e.g. 4">
+            </div>
+          </div>
+
+          <div class="output-card">
+            <div class="output-item">
+              <div class="output-label">Usable Amplifier Power</div>
+              <div class="output-value" id="v70Usable">—</div>
+            </div>
+            <div class="output-item highlight">
+              <div class="output-label">Max Tap per Speaker</div>
+              <div class="output-value" id="v70Tap">—</div>
+              <div class="output-sub">Round down to the nearest tap setting available on your speakers (commonly 1, 2, 4, 8, 16 W steps).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <!-- ============ 8Ω LOAD CALCULATOR ============ -->
+  <section id="ohmSection" class="hidden">
+    <main>
+      <div class="panel diagram-panel">
+        <svg id="ohmSvg" viewBox="0 0 480 200" xmlns="http://www.w3.org/2000/svg">
+          <text class="calc-label" id="ohmFormulaLabel" x="240" y="35" text-anchor="middle">—</text>
+
+          <rect class="amp-block" x="30" y="80" width="60" height="40" rx="4"></rect>
+          <text class="amp-label" x="60" y="104" text-anchor="middle">AMP</text>
+          <line class="bus-line" x1="90" y1="100" x2="430" y2="100"></line>
+
+          <g id="ohmTapNodes"></g>
+
+          <text class="calc-sub" id="ohmTopologyLabel" x="240" y="155" text-anchor="middle">Parallel wiring</text>
+          <text class="calc-label" id="ohmResultLabel" x="240" y="180" text-anchor="middle">Total load —</text>
+        </svg>
+      </div>
+
+      <div class="panel fields-panel">
+        <div class="fields">
+          <div class="mode-toggle-inline" id="ohmTopologyToggle">
+            <button class="mode-btn active" data-topology="parallel">Parallel</button>
+            <button class="mode-btn" data-topology="series">Series (very rare)</button>
+          </div>
+
+          <div class="field">
+            <label>Number of Speakers</label>
+            <div class="input-row">
+              <input type="number" inputmode="numeric" step="1" min="1" id="ohmSpeakersInput" placeholder="e.g. 4">
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Speaker Impedance</label>
+            <div class="input-row">
+              <input type="number" inputmode="decimal" step="1" id="ohmImpedanceInput" placeholder="e.g. 8">
+              <span class="suffix">Ω</span>
+            </div>
+          </div>
+
+          <div class="output-card">
+            <div class="output-item highlight">
+              <div class="output-label">Total Load on Amplifier</div>
+              <div class="output-value" id="ohmResult">—</div>
+              <div class="output-sub">Check this against your amplifier's minimum rated impedance (commonly 4Ω or 2Ω).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <footer>Works offline once installed · same fraction precision applies across tools</footer>
+</div>
+
+<script>
+  // ---------- Shared helpers ----------
+
+  function getPrecisionDenom(){
+    return parseInt(document.getElementById('precisionSelect').value, 10);
+  }
+
+  function fmt(n){ return Math.round(n * 1000) / 1000; }
+
+  function gcd(a, b){ return b === 0 ? a : gcd(b, a % b); }
+
+  // Converts a total-inches value into a fraction string at the given denominator.
+  // includeFeet: break out feet (e.g. 7' 10-3/8") vs. inches-only (e.g. 63-3/8")
+  function formatFraction(totalInches, denom, includeFeet){
+    const sign = totalInches < 0 ? -1 : 1;
+    let abs = Math.abs(totalInches);
+    let feet = includeFeet ? Math.floor(abs / 12) : 0;
+    let remInches = includeFeet ? abs - feet * 12 : abs;
+    let whole = Math.floor(remInches);
+    let fracPart = remInches - whole;
+    let num = Math.round(fracPart * denom);
+    let d = denom;
+    if (num === d){ num = 0; whole += 1; }
+    if (includeFeet && whole === 12){ whole = 0; feet += 1; }
+    if (num > 0){
+      const g = gcd(num, d);
+      num /= g; d /= g;
+    }
+    let inchStr = num > 0 ? (whole + '-' + num + '/' + d) : String(whole);
+    inchStr += '"';
+    const signStr = sign < 0 ? '-' : '';
+    if (includeFeet && feet > 0){
+      return signStr + feet + "' " + inchStr;
+    }
+    return signStr + inchStr;
+  }
+
+  document.getElementById('precisionSelect').addEventListener('change', () => {
+    renderCenter();
+    renderMountAll();
+  });
+
+  // ---------- Mode switching (Center Finder / Mount Height) ----------
+
+  document.querySelectorAll('#modeTabs .tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#modeTabs .tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const mode = tab.dataset.mode;
+      const sectionByMode = {
+        center: 'centerSection',
+        mount: 'mountSection',
+        '70v': 'v70Section',
+        '8ohm': 'ohmSection'
+      };
+      Object.entries(sectionByMode).forEach(([m, id]) => {
+        document.getElementById(id).classList.toggle('hidden', m !== mode);
+      });
+      document.getElementById('precisionRow').classList.toggle('hidden', mode === '70v' || mode === '8ohm');
+    });
+  });
+
+  // ================= CENTER FINDER =================
+
+  const centerState = { inputMode: 'ftfrac', totalIn: null };
+
+  const cEls = {
+    feet: document.getElementById('feetInput'),
+    inch: document.getElementById('inchInput'),
+    frac: document.getElementById('fracSelect'),
+    decimal: document.getElementById('decimalInput'),
+    ftfracRow: document.getElementById('ftfracRow'),
+    decimalRow: document.getElementById('decimalRow'),
+    outFull: document.getElementById('outFull'),
+    outFullSub: document.getElementById('outFullSub'),
+    outHalf: document.getElementById('outHalf'),
+    outHalfSub: document.getElementById('outHalfSub')
+  };
+
+  document.querySelectorAll('#inputModeToggle .mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#inputModeToggle .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      centerState.inputMode = btn.dataset.im;
+      cEls.ftfracRow.style.display = centerState.inputMode === 'ftfrac' ? 'flex' : 'none';
+      cEls.decimalRow.style.display = centerState.inputMode === 'decimal' ? 'flex' : 'none';
+      recomputeCenter();
+    });
+  });
+
+  [cEls.feet, cEls.inch, cEls.frac, cEls.decimal].forEach(el => {
+    el.addEventListener('input', recomputeCenter);
+    el.addEventListener('change', recomputeCenter);
+  });
+
+  function recomputeCenter(){
+    let total = null;
+    if (centerState.inputMode === 'ftfrac'){
+      if (cEls.feet.value !== '' || cEls.inch.value !== ''){
+        const feet = parseFloat(cEls.feet.value) || 0;
+        const inch = parseFloat(cEls.inch.value) || 0;
+        const frac = parseFloat(cEls.frac.value) || 0;
+        total = feet * 12 + inch + frac;
+      }
+    } else {
+      if (cEls.decimal.value !== ''){
+        const v = parseFloat(cEls.decimal.value);
+        if (isFinite(v)) total = v;
+      }
+    }
+    centerState.totalIn = (total != null && total > 0) ? total : null;
+    renderCenter();
+  }
+
+  function renderCenter(){
+    const denom = getPrecisionDenom();
+    if (centerState.totalIn == null){
+      cEls.outFull.textContent = '—';
+      cEls.outFullSub.textContent = '';
+      cEls.outHalf.textContent = '—';
+      cEls.outHalfSub.textContent = '';
+      document.getElementById('barFullLabel').textContent = 'Full length';
+      document.getElementById('barCenterLabel').textContent = 'Center';
+      document.getElementById('edgeDimLabel').textContent = 'Center to edge';
+      return;
+    }
+    const full = centerState.totalIn;
+    const half = full / 2;
+    cEls.outFull.textContent = formatFraction(full, denom, false);
+    cEls.outFullSub.textContent = full >= 12 ? formatFraction(full, denom, true) : '';
+    cEls.outHalf.textContent = formatFraction(half, denom, false);
+    cEls.outHalfSub.textContent = half >= 12 ? formatFraction(half, denom, true) : '';
+    document.getElementById('edgeDimLabel').textContent = 'Center to edge — ' + formatFraction(half, denom, false);
+    document.getElementById('barFullLabel').textContent = 'Full length — ' + formatFraction(full, denom, false);
+    document.getElementById('barCenterLabel').textContent = 'Center — ' + formatFraction(half, denom, false);
+  }
+
+  // ================= MOUNT HEIGHT =================
+
+  const mountValues = { displayTop: null, offset: null, mountTop: null };
+  let recentEdits = [];
+
+  const mEls = {
+    displayTop: { input: document.getElementById('displayTopInput'), sub: document.getElementById('sub-displayTop'), row: document.getElementById('row-displayTop') },
+    offset: { input: document.getElementById('offsetInput'), sub: document.getElementById('sub-offset'), row: document.getElementById('row-offset') },
+    mountTop: { input: document.getElementById('mountTopInput'), sub: document.getElementById('sub-mountTop'), row: document.getElementById('row-mountTop') }
+  };
+  const panelHeightInput = document.getElementById('panelHeightInput');
+
+  Object.keys(mEls).forEach(key => {
+    mEls[key].input.addEventListener('input', () => handleMountInput(key));
+  });
+  panelHeightInput.addEventListener('input', () => { updateReferenceHeights(); updateMountDiagram(); });
+
+  function handleMountInput(key){
+    const raw = mEls[key].input.value;
+    const v = parseFloat(raw);
+    mountValues[key] = (raw !== '' && isFinite(v)) ? v : null;
+
+    recentEdits = recentEdits.filter(k => k !== key);
+    recentEdits.unshift(key);
+    recentEdits = recentEdits.slice(0, 2);
+
+    tryComputeMount();
+    renderMount(key);
+  }
+
+  function tryComputeMount(){
+    const keys = ['displayTop', 'offset', 'mountTop'];
+    if (recentEdits.length < 2) return;
+    const outputKey = keys.find(k => !recentEdits.includes(k));
+    const others = keys.filter(k => k !== outputKey);
+    if (mountValues[others[0]] == null || mountValues[others[1]] == null) return;
+
+    if (outputKey === 'displayTop') mountValues.displayTop = mountValues.offset + mountValues.mountTop;
+    else if (outputKey === 'mountTop') mountValues.mountTop = mountValues.displayTop - mountValues.offset;
+    else mountValues.offset = mountValues.displayTop - mountValues.mountTop;
+  }
+
+  function renderMount(exclude){
+    const denom = getPrecisionDenom();
+    Object.keys(mEls).forEach(key => {
+      const v = mountValues[key];
+      if (key !== exclude){
+        mEls[key].input.value = v == null ? '' : fmt(v);
+      }
+      mEls[key].sub.textContent = v == null ? '' : formatFraction(v, denom, false);
+      mEls[key].row.classList.toggle('answer', key === 'mountTop' && v != null);
+    });
+    updateReferenceHeights();
+    updateMountDiagram();
+  }
+
+  function renderMountAll(){ renderMount(null); }
+
+  function updateReferenceHeights(){
+    const refPanel = document.getElementById('refPanel');
+    const topAFF = mountValues.displayTop;
+    const panelH = parseFloat(panelHeightInput.value);
+    if (topAFF == null || !isFinite(panelH) || panelH <= 0){
+      refPanel.classList.remove('visible');
+      return;
+    }
+    refPanel.classList.add('visible');
+    const denom = getPrecisionDenom();
+    const centerAFF = topAFF - panelH / 2;
+    const bottomAFF = topAFF - panelH;
+    document.getElementById('refTop').textContent = formatFraction(topAFF, denom, false) + '  ·  ' + fmt(topAFF) + ' in';
+    document.getElementById('refCenter').textContent = formatFraction(centerAFF, denom, false) + '  ·  ' + fmt(centerAFF) + ' in';
+    document.getElementById('refBottom').textContent = formatFraction(bottomAFF, denom, false) + '  ·  ' + fmt(bottomAFF) + ' in';
+  }
+
+  function updateMountDiagram(){
+    const floorY = 300, topY = 40;
+    const known = [mountValues.mountTop, mountValues.displayTop].filter(v => v != null && v > 0);
+    const maxVal = known.length ? Math.max(...known) * 1.2 : 100;
+    const scale = (floorY - topY) / maxVal;
+    const yFor = (v) => floorY - v * scale;
+
+    const mountTick = document.getElementById('mountTick');
+    const mountLabel = document.getElementById('mountTickLabel');
+    const displayTick = document.getElementById('displayTick');
+    const displayLabel = document.getElementById('displayTickLabel');
+    const offsetBracket = document.getElementById('offsetBracket');
+    const offsetLabel = document.getElementById('offsetLabel');
+    const displayRect = document.getElementById('displayRect');
+
+    if (mountValues.mountTop != null){
+      const y = yFor(mountValues.mountTop);
+      mountTick.setAttribute('y1', y); mountTick.setAttribute('y2', y);
+      mountLabel.setAttribute('y', y + 4);
+      mountLabel.textContent = 'Mount ' + fmt(mountValues.mountTop) + '"';
+      mountTick.style.opacity = 1; mountLabel.style.opacity = 1;
+    } else {
+      mountTick.style.opacity = 0.25; mountLabel.style.opacity = 0;
+      mountTick.setAttribute('y1', floorY - 100); mountTick.setAttribute('y2', floorY - 100);
+    }
+
+    if (mountValues.displayTop != null){
+      const y = yFor(mountValues.displayTop);
+      displayTick.setAttribute('y1', y); displayTick.setAttribute('y2', y);
+      displayLabel.setAttribute('y', y + 4);
+      displayLabel.textContent = 'Display top ' + fmt(mountValues.displayTop) + '"';
+      displayTick.style.opacity = 1; displayLabel.style.opacity = 1;
+
+      const panelH = parseFloat(panelHeightInput.value);
+      const rectH = (isFinite(panelH) && panelH > 0) ? panelH * scale : 60;
+      const rectW = rectH * (16/9);
+      const rectX = 150;
+
+      const vbWidth = Math.max(380, rectX + rectW + 30);
+      document.getElementById('mountSvg').setAttribute('viewBox', '0 0 ' + vbWidth + ' 360');
+      document.querySelector('.floor-line').setAttribute('x2', vbWidth - 30);
+
+      displayRect.setAttribute('x', rectX);
+      displayRect.setAttribute('y', y);
+      displayRect.setAttribute('width', rectW);
+      displayRect.setAttribute('height', rectH);
+      displayRect.style.opacity = 1;
+    } else {
+      displayTick.style.opacity = 0.25; displayLabel.style.opacity = 0;
+      displayTick.setAttribute('y1', floorY - 180); displayTick.setAttribute('y2', floorY - 180);
+      displayRect.style.opacity = 0;
+      document.getElementById('mountSvg').setAttribute('viewBox', '0 0 380 360');
+      document.querySelector('.floor-line').setAttribute('x2', 350);
+    }
+
+    if (mountValues.mountTop != null && mountValues.displayTop != null){
+      const y1 = yFor(mountValues.mountTop);
+      const y2 = yFor(mountValues.displayTop);
+      offsetBracket.setAttribute('y1', y1);
+      offsetBracket.setAttribute('y2', y2);
+      offsetLabel.setAttribute('y', (y1 + y2) / 2 - 6);
+      offsetLabel.textContent = 'Offset ' + fmt(mountValues.offset) + '"';
+      offsetBracket.style.opacity = 1; offsetLabel.style.opacity = 1;
+    } else {
+      offsetBracket.style.opacity = 0; offsetLabel.style.opacity = 0;
+    }
+  }
+
+  // ================= 70V TAP CALCULATOR =================
+
+  const v70Els = {
+    watts: document.getElementById('v70WattsInput'),
+    headroom: document.getElementById('v70HeadroomInput'),
+    speakers: document.getElementById('v70SpeakersInput'),
+    usable: document.getElementById('v70Usable'),
+    tap: document.getElementById('v70Tap'),
+    usableLabel: document.getElementById('v70UsableLabel'),
+    tapLabel: document.getElementById('v70TapLabel')
+  };
+
+  // ================= Shared: dynamic speaker nodes =================
+  // Draws speaker icons (concentric circles, like the standard ceiling-speaker
+  // symbol) along a bus line. Count is capped visually — beyond that, we just
+  // keep showing the capped picture rather than cramming in more icons.
+  const MAX_TAP_NODES = 16;
+
+  function buildSpeakerNodes(containerId, rawCount, cfg){
+    const container = document.getElementById(containerId);
+    const validCount = isFinite(rawCount) && rawCount > 0;
+    const n = validCount ? Math.min(Math.round(rawCount), MAX_TAP_NODES) : 4;
+    const { busX1, busX2, busY, dropY, onBus } = cfg;
+    const spacing = (busX2 - busX1) / (n + 1);
+    let svg = '';
+    for (let i = 1; i <= n; i++){
+      const x = busX1 + spacing * i;
+      const cy = onBus ? busY : dropY;
+      if (!onBus){
+        svg += '<line class="tap-drop" x1="' + x + '" y1="' + busY + '" x2="' + x + '" y2="' + dropY + '"></line>';
+      }
+      svg += '<circle class="tap-outer" cx="' + x + '" cy="' + cy + '" r="7"></circle>';
+      svg += '<circle class="tap-inner" cx="' + x + '" cy="' + cy + '" r="3"></circle>';
+    }
+    container.innerHTML = svg;
+    container.style.opacity = validCount ? 1 : 0.35;
+  }
+
+  [v70Els.watts, v70Els.headroom, v70Els.speakers].forEach(el => {
+    el.addEventListener('input', renderV70);
+  });
+
+  function renderV70(){
+    const watts = parseFloat(v70Els.watts.value);
+    const headroomPct = parseFloat(v70Els.headroom.value);
+    const speakers = parseFloat(v70Els.speakers.value);
+
+    const validWatts = isFinite(watts) && watts > 0;
+    const validHeadroom = isFinite(headroomPct) && headroomPct > 0;
+    const validSpeakers = isFinite(speakers) && speakers > 0;
+
+    buildSpeakerNodes('v70TapNodes', speakers, { busX1: 90, busX2: 430, busY: 100, dropY: 130, onBus: false });
+
+    if (!validWatts || !validHeadroom){
+      v70Els.usable.textContent = '—';
+      v70Els.usableLabel.textContent = 'Usable power —';
+    } else {
+      const usable = watts * (headroomPct / 100);
+      v70Els.usable.textContent = fmt(usable) + ' W';
+      v70Els.usableLabel.textContent = watts + 'W × ' + headroomPct + '% = ' + fmt(usable) + 'W usable';
+    }
+
+    if (!validWatts || !validHeadroom || !validSpeakers){
+      v70Els.tap.textContent = '—';
+      v70Els.tapLabel.textContent = 'Max tap per speaker —';
+      return;
+    }
+
+    const usable = watts * (headroomPct / 100);
+    const tap = usable / speakers;
+    v70Els.tap.textContent = fmt(tap) + ' W';
+    v70Els.tapLabel.textContent = fmt(usable) + 'W ÷ ' + speakers + ' = ' + fmt(tap) + 'W max tap';
+  }
+
+  // ================= 8Ω LOAD CALCULATOR =================
+
+  const ohmState = { topology: 'parallel' };
+
+  const ohmEls = {
+    speakers: document.getElementById('ohmSpeakersInput'),
+    impedance: document.getElementById('ohmImpedanceInput'),
+    result: document.getElementById('ohmResult'),
+    formulaLabel: document.getElementById('ohmFormulaLabel'),
+    resultLabel: document.getElementById('ohmResultLabel'),
+    topologyLabel: document.getElementById('ohmTopologyLabel')
+  };
+
+  document.querySelectorAll('#ohmTopologyToggle .mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#ohmTopologyToggle .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      ohmState.topology = btn.dataset.topology;
+      renderOhm();
+    });
+  });
+
+  [ohmEls.speakers, ohmEls.impedance].forEach(el => el.addEventListener('input', renderOhm));
+
+  function renderOhm(){
+    const speakers = parseFloat(ohmEls.speakers.value);
+    const impedance = parseFloat(ohmEls.impedance.value);
+    const validSpeakers = isFinite(speakers) && speakers > 0;
+    const validImpedance = isFinite(impedance) && impedance > 0;
+
+    const onBus = ohmState.topology === 'series';
+    buildSpeakerNodes('ohmTapNodes', speakers, { busX1: 90, busX2: 430, busY: 100, dropY: 130, onBus: onBus });
+    ohmEls.topologyLabel.textContent = ohmState.topology === 'parallel' ? 'Parallel wiring' : 'Series wiring (very rare)';
+
+    if (!validSpeakers || !validImpedance){
+      ohmEls.result.textContent = '—';
+      ohmEls.formulaLabel.textContent = '—';
+      ohmEls.resultLabel.textContent = 'Total load —';
+      return;
+    }
+
+    let total;
+    if (ohmState.topology === 'parallel'){
+      total = impedance / speakers;
+      ohmEls.formulaLabel.textContent = speakers + ' × ' + impedance + 'Ω in parallel';
+    } else {
+      total = impedance * speakers;
+      ohmEls.formulaLabel.textContent = speakers + ' × ' + impedance + 'Ω in series';
+    }
+    ohmEls.result.textContent = fmt(total) + ' Ω';
+    ohmEls.resultLabel.textContent = 'Total load = ' + fmt(total) + 'Ω';
+  }
+
+  // ---------- Initial state: nothing prepopulated ----------
+  renderCenter();
+  renderMountAll();
+  renderV70();
+  renderOhm();
+
+  if ('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
+
+</body>
+</html>

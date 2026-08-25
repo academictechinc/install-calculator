@@ -404,29 +404,61 @@
 
       <div class="panel fields-panel">
         <div class="fields">
+          <div class="mode-toggle-inline" id="mountInputModeToggle">
+            <button class="mode-btn active" data-im="inchfrac">Inches + Fraction</button>
+            <button class="mode-btn" data-im="decimal">Decimal</button>
+          </div>
+
           <div class="field">
             <label>Display Height — Top, AFF</label>
-            <div class="input-row" id="row-displayTop">
+            <div class="input-row" id="row-displayTop" style="display:none;">
               <input type="number" inputmode="decimal" step="0.01" id="displayTopInput">
               <span class="suffix">in</span>
+            </div>
+            <div class="row-group inchfrac-row" id="inchfrac-displayTop" style="display:flex;">
+              <div class="input-row">
+                <input type="number" inputmode="decimal" step="1" id="displayTopWhole" placeholder="0">
+                <span class="suffix">in</span>
+              </div>
+              <div class="input-row">
+                <select id="displayTopFrac"></select>
+              </div>
             </div>
             <div class="fraction-sub" id="sub-displayTop"></div>
           </div>
 
           <div class="field">
             <label>Mount Offset — Top of Mount to Top of Display</label>
-            <div class="input-row" id="row-offset">
+            <div class="input-row" id="row-offset" style="display:none;">
               <input type="number" inputmode="decimal" step="0.01" id="offsetInput">
               <span class="suffix">in</span>
+            </div>
+            <div class="row-group inchfrac-row" id="inchfrac-offset" style="display:flex;">
+              <div class="input-row">
+                <input type="number" inputmode="decimal" step="1" id="offsetWhole" placeholder="0">
+                <span class="suffix">in</span>
+              </div>
+              <div class="input-row">
+                <select id="offsetFrac"></select>
+              </div>
             </div>
             <div class="fraction-sub" id="sub-offset"></div>
           </div>
 
           <div class="field">
             <label>Mount Height — Top, AFF</label>
-            <div class="input-row" id="row-mountTop">
+            <div class="input-row" id="row-mountTop" style="display:none;">
               <input type="number" inputmode="decimal" step="0.01" id="mountTopInput">
               <span class="suffix">in</span>
+            </div>
+            <div class="row-group inchfrac-row" id="inchfrac-mountTop" style="display:flex;">
+              <div class="input-row">
+                <input type="number" inputmode="decimal" step="1" id="mountTopWhole" placeholder="0">
+                <span class="suffix">in</span>
+              </div>
+              <div class="input-row">
+                <select id="mountTopFrac"></select>
+              </div>
             </div>
             <div class="fraction-sub" id="sub-mountTop"></div>
             <div class="hint">Enter any two of the three fields — the third fills in automatically.</div>
@@ -434,9 +466,18 @@
 
           <div class="field">
             <label>Display Panel Height <span style="text-transform:none; opacity:0.7;">(optional)</span></label>
-            <div class="input-row">
+            <div class="input-row" id="row-panelHeight" style="display:none;">
               <input type="number" inputmode="decimal" step="0.01" id="panelHeightInput">
               <span class="suffix">in</span>
+            </div>
+            <div class="row-group inchfrac-row" id="inchfrac-panelHeight" style="display:flex;">
+              <div class="input-row">
+                <input type="number" inputmode="decimal" step="1" id="panelHeightWhole" placeholder="0">
+                <span class="suffix">in</span>
+              </div>
+              <div class="input-row">
+                <select id="panelHeightFrac"></select>
+              </div>
             </div>
             <div class="hint">Adds center &amp; bottom AFF below, once display height is known.</div>
           </div>
@@ -708,23 +749,102 @@
 
   const mountValues = { displayTop: null, offset: null, mountTop: null };
   let recentEdits = [];
+  let mountInputMode = 'inchfrac';
+  let currentPanelHeight = null;
 
   const mEls = {
-    displayTop: { input: document.getElementById('displayTopInput'), sub: document.getElementById('sub-displayTop'), row: document.getElementById('row-displayTop') },
-    offset: { input: document.getElementById('offsetInput'), sub: document.getElementById('sub-offset'), row: document.getElementById('row-offset') },
-    mountTop: { input: document.getElementById('mountTopInput'), sub: document.getElementById('sub-mountTop'), row: document.getElementById('row-mountTop') }
+    displayTop: { input: document.getElementById('displayTopInput'), sub: document.getElementById('sub-displayTop'), row: document.getElementById('row-displayTop'), fracRow: document.getElementById('inchfrac-displayTop') },
+    offset: { input: document.getElementById('offsetInput'), sub: document.getElementById('sub-offset'), row: document.getElementById('row-offset'), fracRow: document.getElementById('inchfrac-offset') },
+    mountTop: { input: document.getElementById('mountTopInput'), sub: document.getElementById('sub-mountTop'), row: document.getElementById('row-mountTop'), fracRow: document.getElementById('inchfrac-mountTop') }
   };
   const panelHeightInput = document.getElementById('panelHeightInput');
+  const panelHeightRow = document.getElementById('row-panelHeight');
+  const panelHeightFracRow = document.getElementById('inchfrac-panelHeight');
+
+  // Populate the four new fraction dropdowns (same sixteenths used on Center Finder)
+  const FRACTION_VALUES = [0,0.0625,0.125,0.1875,0.25,0.3125,0.375,0.4375,0.5,0.5625,0.625,0.6875,0.75,0.8125,0.875,0.9375];
+  const FRACTION_LABELS = ['0','1/16','1/8','3/16','1/4','5/16','3/8','7/16','1/2','9/16','5/8','11/16','3/4','13/16','7/8','15/16'];
+  ['displayTop','offset','mountTop','panelHeight'].forEach(key => {
+    const sel = document.getElementById(key + 'Frac');
+    FRACTION_VALUES.forEach((val, i) => {
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = FRACTION_LABELS[i];
+      sel.appendChild(opt);
+    });
+  });
+
+  function readFieldValue(key){
+    if (mountInputMode === 'decimal'){
+      const el = document.getElementById(key + 'Input');
+      if (el.value === '') return null;
+      const v = parseFloat(el.value);
+      return isFinite(v) ? v : null;
+    }
+    const wholeEl = document.getElementById(key + 'Whole');
+    const fracEl = document.getElementById(key + 'Frac');
+    const hasWhole = wholeEl.value !== '';
+    const hasFrac = fracEl.value !== '' && fracEl.value !== '0';
+    if (!hasWhole && !hasFrac) return null;
+    const whole = parseFloat(wholeEl.value) || 0;
+    const frac = parseFloat(fracEl.value) || 0;
+    return whole + frac;
+  }
+
+  function setFieldValue(key, value){
+    const decimalInput = document.getElementById(key + 'Input');
+    const wholeInput = document.getElementById(key + 'Whole');
+    const fracSelect = document.getElementById(key + 'Frac');
+    if (value == null){
+      decimalInput.value = '';
+      wholeInput.value = '';
+      fracSelect.value = '0';
+      return;
+    }
+    decimalInput.value = fmt(value);
+    let whole = Math.floor(value);
+    let frac = Math.round((value - whole) * 16) / 16;
+    if (frac >= 1){ frac -= 1; whole += 1; }
+    wholeInput.value = whole;
+    fracSelect.value = frac.toString();
+  }
+
+  document.querySelectorAll('#mountInputModeToggle .mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#mountInputModeToggle .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      mountInputMode = btn.dataset.im;
+
+      const showFrac = mountInputMode === 'inchfrac';
+      Object.keys(mEls).forEach(key => {
+        mEls[key].row.style.display = showFrac ? 'none' : 'flex';
+        mEls[key].fracRow.style.display = showFrac ? 'flex' : 'none';
+      });
+      panelHeightRow.style.display = showFrac ? 'none' : 'flex';
+      panelHeightFracRow.style.display = showFrac ? 'flex' : 'none';
+
+      renderMount(null);
+      setFieldValue('panelHeight', currentPanelHeight);
+    });
+  });
 
   Object.keys(mEls).forEach(key => {
-    mEls[key].input.addEventListener('input', () => handleMountInput(key));
+    document.getElementById(key + 'Input').addEventListener('input', () => handleMountInput(key));
+    document.getElementById(key + 'Whole').addEventListener('input', () => handleMountInput(key));
+    document.getElementById(key + 'Frac').addEventListener('change', () => handleMountInput(key));
   });
-  panelHeightInput.addEventListener('input', () => { updateReferenceHeights(); updateMountDiagram(); });
+
+  function handlePanelHeightInput(){
+    currentPanelHeight = readFieldValue('panelHeight');
+    updateReferenceHeights();
+    updateMountDiagram();
+  }
+  panelHeightInput.addEventListener('input', handlePanelHeightInput);
+  document.getElementById('panelHeightWhole').addEventListener('input', handlePanelHeightInput);
+  document.getElementById('panelHeightFrac').addEventListener('change', handlePanelHeightInput);
 
   function handleMountInput(key){
-    const raw = mEls[key].input.value;
-    const v = parseFloat(raw);
-    mountValues[key] = (raw !== '' && isFinite(v)) ? v : null;
+    mountValues[key] = readFieldValue(key);
 
     recentEdits = recentEdits.filter(k => k !== key);
     recentEdits.unshift(key);
@@ -751,10 +871,13 @@
     Object.keys(mEls).forEach(key => {
       const v = mountValues[key];
       if (key !== exclude){
-        mEls[key].input.value = v == null ? '' : fmt(v);
+        setFieldValue(key, v);
       }
       mEls[key].sub.textContent = v == null ? '' : formatFraction(v, denom, false);
       mEls[key].row.classList.toggle('answer', key === 'mountTop' && v != null);
+      mEls[key].fracRow.querySelectorAll('.input-row').forEach(el => {
+        el.classList.toggle('answer', key === 'mountTop' && v != null);
+      });
     });
     updateReferenceHeights();
     updateMountDiagram();
@@ -765,7 +888,7 @@
   function updateReferenceHeights(){
     const refPanel = document.getElementById('refPanel');
     const topAFF = mountValues.displayTop;
-    const panelH = parseFloat(panelHeightInput.value);
+    const panelH = currentPanelHeight;
     if (topAFF == null || !isFinite(panelH) || panelH <= 0){
       refPanel.classList.remove('visible');
       return;
@@ -777,6 +900,13 @@
     document.getElementById('refTop').textContent = formatFraction(topAFF, denom, false) + '  ·  ' + fmt(topAFF) + ' in';
     document.getElementById('refCenter').textContent = formatFraction(centerAFF, denom, false) + '  ·  ' + fmt(centerAFF) + ' in';
     document.getElementById('refBottom').textContent = formatFraction(bottomAFF, denom, false) + '  ·  ' + fmt(bottomAFF) + ' in';
+  }
+
+  function diagramValueLabel(v){
+    if (mountInputMode === 'inchfrac'){
+      return formatFraction(v, getPrecisionDenom(), false);
+    }
+    return fmt(v) + '"';
   }
 
   function updateMountDiagram(){
@@ -798,7 +928,7 @@
       const y = yFor(mountValues.mountTop);
       mountTick.setAttribute('y1', y); mountTick.setAttribute('y2', y);
       mountLabel.setAttribute('y', y + 4);
-      mountLabel.textContent = 'Mount ' + fmt(mountValues.mountTop) + '"';
+      mountLabel.textContent = 'Mount ' + diagramValueLabel(mountValues.mountTop);
       mountTick.style.opacity = 1; mountLabel.style.opacity = 1;
     } else {
       mountTick.style.opacity = 0.25; mountLabel.style.opacity = 0;
@@ -809,10 +939,10 @@
       const y = yFor(mountValues.displayTop);
       displayTick.setAttribute('y1', y); displayTick.setAttribute('y2', y);
       displayLabel.setAttribute('y', y + 4);
-      displayLabel.textContent = 'Display top ' + fmt(mountValues.displayTop) + '"';
+      displayLabel.textContent = 'Display top ' + diagramValueLabel(mountValues.displayTop);
       displayTick.style.opacity = 1; displayLabel.style.opacity = 1;
 
-      const panelH = parseFloat(panelHeightInput.value);
+      const panelH = currentPanelHeight;
       const rectH = (isFinite(panelH) && panelH > 0) ? panelH * scale : 60;
       const rectW = rectH * (16/9);
       const rectX = 150;
@@ -840,7 +970,7 @@
       offsetBracket.setAttribute('y1', y1);
       offsetBracket.setAttribute('y2', y2);
       offsetLabel.setAttribute('y', (y1 + y2) / 2 - 6);
-      offsetLabel.textContent = 'Offset ' + fmt(mountValues.offset) + '"';
+      offsetLabel.textContent = 'Offset ' + diagramValueLabel(mountValues.offset);
       offsetBracket.style.opacity = 1; offsetLabel.style.opacity = 1;
     } else {
       offsetBracket.style.opacity = 0; offsetLabel.style.opacity = 0;

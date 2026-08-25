@@ -283,6 +283,7 @@
       <button class="tab" data-mode="mount">Mount Height</button>
       <button class="tab" data-mode="70v">70V Tap</button>
       <button class="tab" data-mode="8ohm">8Ω Load</button>
+      <button class="tab" data-mode="convert">in ↔ mm</button>
     </div>
   </div>
 
@@ -605,6 +606,69 @@
     </main>
   </section>
 
+  <!-- ============ IN / MM CONVERTER ============ -->
+  <section id="convertSection" class="hidden">
+    <main>
+      <div class="panel diagram-panel">
+        <svg viewBox="0 0 480 200" xmlns="http://www.w3.org/2000/svg">
+          <text class="bar-label" id="convTopLabel" x="240" y="50" text-anchor="middle">Length</text>
+          <line class="bar-line" x1="60" y1="100" x2="420" y2="100"></line>
+          <line class="bar-tick" x1="60" y1="88" x2="60" y2="112"></line>
+          <line class="bar-tick" x1="420" y1="88" x2="420" y2="112"></line>
+          <text class="center-label" id="convBottomLabel" x="240" y="150" text-anchor="middle">mm</text>
+        </svg>
+      </div>
+
+      <div class="panel fields-panel">
+        <div class="fields">
+          <div class="field">
+            <label>Feet + Inches</label>
+            <div class="row-group">
+              <div class="input-row">
+                <input type="number" inputmode="decimal" step="1" id="convFeetInput" placeholder="0">
+                <span class="suffix">ft</span>
+              </div>
+              <div class="input-row">
+                <input type="number" inputmode="decimal" step="0.01" id="convInchDecInput" placeholder="0">
+                <span class="suffix">in</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Inches</label>
+            <div class="input-row">
+              <input type="number" inputmode="decimal" step="0.01" id="convInchesOnlyInput" placeholder="0">
+              <span class="suffix">in</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Inches + Fraction</label>
+            <div class="row-group">
+              <div class="input-row">
+                <input type="number" inputmode="decimal" step="1" id="convInchWholeInput" placeholder="0">
+                <span class="suffix">in</span>
+              </div>
+              <div class="input-row">
+                <select id="convFracSelect"></select>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Millimeters</label>
+            <div class="input-row">
+              <input type="number" inputmode="decimal" step="0.01" id="convMmInput" placeholder="0">
+              <span class="suffix">mm</span>
+            </div>
+            <div class="hint">Enter a value in any field above — the others follow automatically.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </section>
+
   <footer>Works offline once installed · same fraction precision applies across tools</footer>
 </div>
 
@@ -648,6 +712,7 @@
   document.getElementById('precisionSelect').addEventListener('change', () => {
     renderCenter();
     renderMountAll();
+    convRenderFrom(null);
   });
 
   // ---------- Mode switching (Center Finder / Mount Height) ----------
@@ -661,7 +726,8 @@
         center: 'centerSection',
         mount: 'mountSection',
         '70v': 'v70Section',
-        '8ohm': 'ohmSection'
+        '8ohm': 'ohmSection',
+        convert: 'convertSection'
       };
       Object.entries(sectionByMode).forEach(([m, id]) => {
         document.getElementById(id).classList.toggle('hidden', m !== mode);
@@ -1104,11 +1170,122 @@
     ohmEls.resultLabel.textContent = 'Total load = ' + fmt(total) + 'Ω';
   }
 
+  // ================= IN / MM CONVERTER =================
+
+  const convEls = {
+    feet: document.getElementById('convFeetInput'),
+    inchDec: document.getElementById('convInchDecInput'),
+    inchesOnly: document.getElementById('convInchesOnlyInput'),
+    inchWhole: document.getElementById('convInchWholeInput'),
+    frac: document.getElementById('convFracSelect'),
+    mm: document.getElementById('convMmInput')
+  };
+
+  FRACTION_VALUES.forEach((val, i) => {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = FRACTION_LABELS[i];
+    convEls.frac.appendChild(opt);
+  });
+
+  let convCanonicalIn = null;
+
+  function convRenderFrom(exclude){
+    const denom = getPrecisionDenom();
+    const topLabel = document.getElementById('convTopLabel');
+    const bottomLabel = document.getElementById('convBottomLabel');
+
+    if (convCanonicalIn == null){
+      if (exclude !== 'feet'){ convEls.feet.value = ''; convEls.inchDec.value = ''; }
+      if (exclude !== 'inchesOnly'){ convEls.inchesOnly.value = ''; }
+      if (exclude !== 'frac'){ convEls.inchWhole.value = ''; convEls.frac.value = '0'; }
+      if (exclude !== 'mm'){ convEls.mm.value = ''; }
+      topLabel.textContent = 'Length';
+      bottomLabel.textContent = 'mm';
+      return;
+    }
+
+    const totalIn = convCanonicalIn;
+
+    if (exclude !== 'feet'){
+      const feet = Math.floor(totalIn / 12);
+      const inches = Math.round((totalIn - feet * 12) * 100) / 100;
+      convEls.feet.value = feet;
+      convEls.inchDec.value = inches;
+    }
+    if (exclude !== 'inchesOnly'){
+      convEls.inchesOnly.value = fmt(totalIn);
+    }
+    if (exclude !== 'frac'){
+      let whole = Math.floor(totalIn);
+      let frac = Math.round((totalIn - whole) * denom) / denom;
+      if (frac >= 1){ frac -= 1; whole += 1; }
+      convEls.inchWhole.value = whole;
+      convEls.frac.value = frac.toString();
+    }
+    if (exclude !== 'mm'){
+      convEls.mm.value = fmt(totalIn * 25.4);
+    }
+
+    topLabel.textContent = formatFraction(totalIn, denom, true);
+    bottomLabel.textContent = fmt(totalIn * 25.4) + ' mm';
+  }
+
+  function convHandleFeet(){
+    if (convEls.feet.value === '' && convEls.inchDec.value === ''){
+      convCanonicalIn = null;
+    } else {
+      const feet = parseFloat(convEls.feet.value) || 0;
+      const inches = parseFloat(convEls.inchDec.value) || 0;
+      convCanonicalIn = feet * 12 + inches;
+    }
+    convRenderFrom('feet');
+  }
+
+  function convHandleInchesOnly(){
+    if (convEls.inchesOnly.value === ''){
+      convCanonicalIn = null;
+    } else {
+      const v = parseFloat(convEls.inchesOnly.value);
+      convCanonicalIn = isFinite(v) ? v : null;
+    }
+    convRenderFrom('inchesOnly');
+  }
+
+  function convHandleFrac(){
+    if (convEls.inchWhole.value === ''){
+      convCanonicalIn = null;
+    } else {
+      const whole = parseFloat(convEls.inchWhole.value) || 0;
+      const frac = parseFloat(convEls.frac.value) || 0;
+      convCanonicalIn = whole + frac;
+    }
+    convRenderFrom('frac');
+  }
+
+  function convHandleMm(){
+    if (convEls.mm.value === ''){
+      convCanonicalIn = null;
+    } else {
+      const mm = parseFloat(convEls.mm.value);
+      convCanonicalIn = isFinite(mm) ? mm / 25.4 : null;
+    }
+    convRenderFrom('mm');
+  }
+
+  convEls.feet.addEventListener('input', convHandleFeet);
+  convEls.inchDec.addEventListener('input', convHandleFeet);
+  convEls.inchesOnly.addEventListener('input', convHandleInchesOnly);
+  convEls.inchWhole.addEventListener('input', convHandleFrac);
+  convEls.frac.addEventListener('change', convHandleFrac);
+  convEls.mm.addEventListener('input', convHandleMm);
+
   // ---------- Initial state: nothing prepopulated ----------
   renderCenter();
   renderMountAll();
   renderV70();
   renderOhm();
+  convRenderFrom(null);
 
   if ('serviceWorker' in navigator){
     window.addEventListener('load', () => {
